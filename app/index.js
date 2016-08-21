@@ -76,9 +76,12 @@ function firstFunction() {
 
 function first_http_request(resolve) {
 
+    // note: to make a post, just use this sintax (the form is the arguments of the post ): 
+    // request.post({url:'http://service.com/upload', form: {key:'value'}}, function(err,httpResponse,body){ /* ... */ })
+
     var url = 'http://apis.is/hospital';
 
-    request(url, function (error, response, body) {
+    request.get(url, function (error, response, body) {
 
         var response = JSON.parse(body); // important fucking line..
         var hospital_array = response.results;
@@ -160,7 +163,7 @@ function makeSecondHttpRequest(all_random_names_array, callback) {
 
         var url = 'http://api.randomuser.me/';
 
-        request(url, function (error, response, body) {
+        request.get(url, function (error, response, body) {
 
             var response = JSON.parse(body); // important fucking line..
             var response_array = response.results;
@@ -247,7 +250,7 @@ function makeThirdHttpRequest(all_random_number_array, callback) {
 
         var url = 'https://qrng.anu.edu.au/API/jsonI.php?length=1&type=uint8';
 
-        request(url, function (error, response, body) {
+        request.get(url, function (error, response, body) {
 
             var response = JSON.parse(body); // parsing to readable JSON
             var random_number_array = response;
