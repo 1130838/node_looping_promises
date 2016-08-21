@@ -12,13 +12,14 @@ var url_orionhistory = 'mongodb://10.10.10.202:27017/orion_history';
 
 module.exports = {
 
-    insertDataOnMongoDB: function (data) {
+    insertDataOnMongoDB: function (data, resolve) {
         MongoClient.connect(url_orionhistory, function (err, db) {
             assert.equal(null, err);
             db.collection('testing_data').insert(data, function (err, result) {
                 assert.equal(err, null);
                 console.log("Inserted requested data on database in 'testing_data' collection wih timestamp " + result.ops[0].date);
                 db.close();
+                resolve();
             });
         });
     }

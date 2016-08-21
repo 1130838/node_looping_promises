@@ -12,6 +12,8 @@ var async = require('async');
 var request = require("request");
 var soap = require('soap');
 
+// global variable to store all promises results. Global variables should be used when they are useful in global scope. 
+var promisesResults = [];
 
 // major function to run in this example
 majorFunctionForSyncMultipleAsyncRequestsAndInsertInMongoDB();
@@ -41,14 +43,12 @@ function majorFunctionForSyncMultipleAsyncRequestsAndInsertInMongoDB() {
         })
         .catch(function (err) {
             console.log('Catch handler ' + err);
-            
+
         });
 }
 
 
-
-    /* F U N C T I O N S  : ----------------------------------------------------*/
-
+/* F U N C T I O N S  : ----------------------------------------------------*/
 
 function doingSomethingFirstFunction() {
     return new Promise(function (resolve) {
@@ -64,7 +64,7 @@ function firstFunction() {
     return new Promise(function (resolve) {
 
         console.log('');
-        console.log('> hello! im first function ! This will make 1 http request for the Iceland hospital today\'s baby births ');
+        console.log('> hello! im first function ! This will make one http request for the Iceland hospital today\'s baby births ');
 
         // you pass the resolve through parameter so it can be called when function 'first_http_request' finishes.
         // this way you have sure that secondFunction will only be executed when the firstFunction finishes
@@ -82,7 +82,7 @@ function first_http_request(resolve) {
 
         var response = JSON.parse(body); // important fucking line..
         var hospital_array = response.results;
-        var documentToSaveInMongo = [];
+        var data_temp = [];
 
         //  console.log('response.results.length = ' + response.results.length);
 
@@ -91,12 +91,14 @@ function first_http_request(resolve) {
                 birthNumbers: ''
             };
 
-            console.log('birthNumbers today = ' + hospital_array[k].birthNumbers +  ' new babys !');
+            console.log('birthNumbers today = ' + hospital_array[k].birthNumbers + ' new babys !');
             object.birthNumbers = hospital_array[k].birthNumbers;
-            documentToSaveInMongo.push(object);
+            data_temp.push(object);
 
-            // uncomment to save the data in mongoDB through repository.js layer
-            // insertOnMongoDB(documentToSaveInMongo);
+            // uncomment and comment the resolve() line to save the data in mongoDB through repository.js layer
+            //insertOnMongoDB(data_temp, resolve); // the resolve goes into this method so it will only go to the next function after its saved in DB
+
+            promisesResults.push(data_temp);
 
         }
         console.log('first function done !');
@@ -115,6 +117,7 @@ function secondFunction() {
         console.log('> hello im second function ! This will make loop of 4 http requests for a random name ');
         var stop = 4;
         var current = 0;
+        var request_results_array = []; // this is a variable that will store the response request and i will need later
 
         async.whilst(
             function () {
@@ -125,14 +128,18 @@ function secondFunction() {
                 console.log('request nº ' + current);
 
                 // put the callback as parameter here, so when makeSecondHttpRequest is finish callback() can be called and make one more iteration in loop.
-                var random_user_name = makeSecondHttpRequest(callback);
-
-                // uncomment to save the data in mongoDB through repository.js layer
-                // insertOnMongoDB(random_user_name);
+                makeSecondHttpRequest(request_results_array, callback);
 
                 current++;
             },
             function () {
+
+                // save data in the promisesResults global variable
+                promisesResults.push(request_results_array);
+
+                // uncomment and comment the resolve() line to save the data in mongoDB through repository.js layer
+                //insertOnMongoDB(request_results_array, resolve);
+
                 console.log('second function done ! Now im ready for the next one !');
                 resolve(); // this will be executed after the cycle - its like saying " the progress bar is complete "
 
@@ -147,7 +154,7 @@ function secondFunction() {
 }
 
 
-function makeSecondHttpRequest(callback) {
+function makeSecondHttpRequest(all_random_names_array, callback) {
 
     return new Promise(function (resolve) {
 
@@ -156,19 +163,27 @@ function makeSecondHttpRequest(callback) {
         request(url, function (error, response, body) {
 
             var response = JSON.parse(body); // important fucking line..
-            var random_user_array = response.results;
-            var random_user_name;
+            var response_array = response.results;
 
-            for (var k = 0; k < random_user_array.length; k++) {
-                random_user_name = random_user_array[k].name.first + ' ' + random_user_array[k].name.last;
-                console.log('random name : ' + random_user_name);
+            for (var k = 0; k < response_array.length; k++) {
+
+                var random_name = response_array[k].name.first + ' ' + response_array[k].name.last;
+                console.log('random name : ' + random_name);
+
+
+                var object = {
+                    random_name: ''
+                };
+
+                object.random_name = response_array[k].name.first + ' ' + response_array[k].name.last;
+                all_random_names_array.push(object);
+
             }
 
             // this callback is called after each iteration so it can sync the process with the async.whilst
             callback();
-            resolve(response);
 
-            return random_user_name;
+            resolve();
 
         });
 
@@ -186,6 +201,7 @@ function thirdFunction() {
 
         var current = 0;
         var stop = 5;
+        var all_random_number_array = [];
 
         async.whilst(
             function () {
@@ -196,31 +212,36 @@ function thirdFunction() {
                 console.log('request nº ' + current);
 
                 // put the callback as parameter here, so when makeSecondHttpRequest is finish callback() can be called and make one more iteration in loop.
-                var documentToSaveInMongo = makeThirdHttpRequest(callback);
-
-                // uncomment to save the data in mongoDB through repository.js layer
-                // insertOnMongoDB(documentToSaveInMongo);
+                makeThirdHttpRequest(all_random_number_array, callback);
 
                 current++;
 
             },
             function () {
+
+                promisesResults.push(all_random_number_array);
+
+                // uncomment and comment the resolve() line to save the data in mongoDB through repository.js layer
+                // insertOnMongoDB(all_random_number_array, resolve);
+
+                console.log('| Hey ! Just to remind you that i have access to all the previous promises results !! ( yes, many many times are needed )');
+                console.log('| here is an example : the first random name was : ' + promisesResults[1][0].random_name + ' and baby\'s born were :' + promisesResults[0][0].birthNumbers);
                 console.log('function three done !! give me more functions ! ');
+
                 resolve(); // this will be executed after the cycle - its like saying " the progress bar is complete "
 
             },
             function (err) {
-                console.log('something went wrong..');
+                console.log('something went wrong..look at this : ' + err);
             }
         )
 
     })
 
-
 }
 
 
-function makeThirdHttpRequest(callback) {
+function makeThirdHttpRequest(all_random_number_array, callback) {
 
     return new Promise(function (resolve) {
 
@@ -230,7 +251,6 @@ function makeThirdHttpRequest(callback) {
 
             var response = JSON.parse(body); // parsing to readable JSON
             var random_number_array = response;
-            var documentToSaveInMongo = [];
 
             for (var k = 0; k < random_number_array.length; k++) {
 
@@ -240,15 +260,14 @@ function makeThirdHttpRequest(callback) {
 
                 console.log('random number =  ' + random_number_array.data);
                 object.random_number = random_number_array.data;
-                documentToSaveInMongo.push(object);
+                all_random_number_array.push(object.random_number);
 
             }
 
             // this callback is called after each iteration so it can sync the process with the async.whilst
             callback();
-            resolve(response);
 
-            return documentToSaveInMongo;
+            resolve();
 
         });
 
@@ -261,18 +280,22 @@ function fourthFunction() {
     return new Promise(function (resolve) {
         console.log('');
         console.log('> Hi! i am fourth function ! This just  to demonstrate that you can chain as many requests as you want !');
+
+        console.log('All promises results were kept in a global variable for use anywhere, anytime between promises :');
+        console.log('promisesResults.length = ' + promisesResults.length);
+
         console.log("This should be last line.. bye..see you next time ! ");
         resolve();
     });
 }
 
 
-function insertOnMongoDB(some_data) {
+function insertOnMongoDB(some_data, resolve) {
     var data = {
         date: new Date(),
         things: some_data
     };
-    repository.insertDataOnMongoDB(data);
+    repository.insertDataOnMongoDB(data, resolve);
 }
 
 
